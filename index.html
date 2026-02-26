@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<title>2026 유월절 새생명 전도축제 점수 현황판</title>
+
+<style>
+  :root{
+    --label-col: 150px;
+    --title-h: 80px;
+
+    --sticker-small: 26px;
+    --sticker-big: 38px;
+
+    --header-img-h: 54px;
+  }
+
+  .teamName{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+  }
+
+  .teamName .line1{ font-size:25px; }
+  .teamName .line2{ font-size:25px; }
+  .teamName .line3{ font-size:16px; } /* 3번째 줄만 작게 */
+
+  body{
+    margin:0;
+    font-family: 'Apple SD Gothic Neo', 'Segoe UI', sans-serif;
+    overflow:hidden;
+    color:#fff;
+    text-align:center;
+    background:radial-gradient(circle at top,#1b2735,#090a0f 70%);
+  }
+
+  #starCanvas{
+    position:fixed;
+    inset:0;
+    width:100%;
+    height:100%;
+    z-index:-1;
+  }
+
+
+  #titleBar{
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:var(--title-h);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:36px;
+    font-weight:700;
+    letter-spacing:1px;
+    color:#ffffff;
+    z-index:10;
+    pointer-events:none;
+    backdrop-filter: blur(2px);
+  }
+
+  #board{
+    position:relative;
+    display:grid;
+    height:calc(100vh - var(--title-h));
+    margin-top:var(--title-h);
+  }
+
+  .cell{
+    border:1px solid rgba(255,255,255,0.10);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    position:relative;
+    text-align:center;
+    overflow:hidden;
+    z-index:2;
+  }
+
+  .label{
+    background:rgba(255,255,255,0.05);
+    font-weight:800;
+    font-size:14px;
+    letter-spacing:0.2px;
+  }
+
+  .teamName{
+    font-weight:700;
+    font-size:20px;
+    line-height:1.2;
+    text-shadow:0 0 10px rgba(0,0,0,0.75);
+  }
+
+  .goal{
+    font-size:18px;
+    font-weight:700;
+    color:#ffd369;
+    text-shadow:0 0 10px rgba(0,0,0,0.7);
+  }
+
+  .total{
+    font-size:22px;
+    font-weight:700;
+    color:#aefcff;
+    text-shadow:0 0 10px rgba(0,0,0,0.7);
+  }
+
+  .headerImgWrap{
+    width:100%;
+    height:100%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .headerImg{
+    height:var(--header-img-h);
+    width:auto;
+    max-width:92%;
+    object-fit:contain;
+    filter: drop-shadow(0 2px 10px rgba(0,0,0,0.5));
+  }
+
+  /* 영역별 fill: DOM은 남겨두되(구조 유지), 보이지 않게(항상 0) 사용할 예정 */
+  .fill{
+    position:absolute;
+    left:0; right:0;
+    bottom:0;
+    height:0%;
+    opacity:0;
+    transition:none;
+    z-index:1;
+  }
+
+  .sticker{
+    position:absolute;
+    inset:6px;
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(var(--sticker-small), 1fr));
+    justify-items:center;
+    align-content:end;
+    gap:6px;
+    z-index:4;
+    pointer-events:none;
+  }
+
+  .stickerImgSmall{
+    width:var(--sticker-small);
+    height:var(--sticker-small);
+    object-fit:contain;
+  }
+  .stickerImgBig{
+    width:var(--sticker-big);
+    height:var(--sticker-big);
+    object-fit:contain;
+    animation: twinkle 1.5s infinite alternate;
+  }
+
+  @keyframes twinkle{
+    from{ transform:scale(1); opacity:0.85; }
+    to{ transform:scale(1.12); opacity:1; }
+  }
+
+  /* 총점 막대만 표시 */
+  .teamBar{
+    position:absolute;
+    opacity:0.32;
+    border-radius:14px 14px 0 0;
+    transition:height 1.0s cubic-bezier(.22,1,.36,1);
+    pointer-events:none;
+    z-index:1;
+    filter: drop-shadow(0 0 14px rgba(255,255,255,0.12));
+  }
+
+  /* ✅ 목표 달성(100%) 시 반짝/빛나는 효과 */
+  .teamBar.completed{
+    opacity:0.7;
+    animation: barGlow 1.2s ease-in-out infinite alternate;
+    box-shadow:
+      0 0 20px rgba(255,255,255,0.6),
+      0 0 40px rgba(255,255,255,0.4),
+      0 0 60px rgba(255,255,255,0.2);
+  }
+
+  /* 막대 자체에 반짝이는 하이라이트 */
+  .teamBar.completed::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    border-radius:14px 14px 0 0;
+    background:
+      radial-gradient(circle at 20% 20%, rgba(255,255,255,0.7), transparent 40%),
+      radial-gradient(circle at 80% 40%, rgba(255,255,255,0.5), transparent 50%);
+    mix-blend-mode:screen;
+    animation: sparkle 1.4s infinite linear;
+  }
+
+  @keyframes sparkle{
+    0%{opacity:0.2; transform:translateY(0);}
+    50%{opacity:0.6; transform:translateY(-6px);}
+    100%{opacity:0.2; transform:translateY(0);}
+  }
+
+  @keyframes barGlow{
+    from{
+      transform: translateY(0) scale(1);
+      filter: drop-shadow(0 0 14px rgba(255,255,255,0.18)) drop-shadow(0 0 24px rgba(255,255,255,0.10));
+    }
+    to{
+      transform: translateY(-2px) scale(1.01);
+      filter: drop-shadow(0 0 22px rgba(255,255,255,0.28)) drop-shadow(0 0 40px rgba(255,255,255,0.16));
+    }
+  }
+
+  @keyframes sparkSweep{
+    0%   { opacity:0.0; transform: translateY(10px) scale(0.98); }
+    20%  { opacity:0.55; }
+    50%  { opacity:0.25; transform: translateY(-6px) scale(1.02); }
+    80%  { opacity:0.45; }
+    100% { opacity:0.0; transform: translateY(-14px) scale(1.03); }
+  }
+</style>
+</head>
+
+<body>
+<canvas id="starCanvas"></canvas>
+
+<div id="titleBar">2026 유월절 새생명 전도축제 점수 현황판</div>
+<div id="board"></div>
+
+<script>
+const COUNTS_URL="https://docs.google.com/spreadsheets/d/e/2PACX-1vTRJFzag0UQSeC0y8FD_lnW0KCtEDTqNe2zsJIKZfDp2yVIfqkz2sJ_qyMPefD7V4AHOF_biohcL6CR/pub?gid=0&single=true&output=csv";
+const SCORE_URL ="https://docs.google.com/spreadsheets/d/e/2PACX-1vTRJFzag0UQSeC0y8FD_lnW0KCtEDTqNe2zsJIKZfDp2yVIfqkz2sJ_qyMPefD7V4AHOF_biohcL6CR/pub?gid=1780595901&single=true&output=csv";
+
+const FINAL_GOALS_FIXED = [24000, 20000, 5000, 88000, 88000, 88000];
+
+const FIXED_TEAM_NAMES = [
+  ["I'll pray for you", "기도해요", "<장년>"],
+  ["I'll root for you", "응원해요", "<청년>"],
+  ["How are you?", "안녕하세요", "<학생>"],
+  ["Thank you", "고마워요", "<부녀 1•6•7•10지역>"],
+  ["It's all thanks to you", "덕분이에요", "<부녀 2•4•8•9지역>"],
+  ["You're amazing", "대단해요", "<부녀 3•5•11•12지역>"]
+];
+
+const TEAM_COLORS = [
+  "#b983ff","#ffe066","#ff8fab","#74c0fc","#ffa94d","#69db7c"
+];
+
+let TEAM_HEADER_IMAGES = [
+  "./assets/header1.png", // 온라인선교
+  "./assets/header2.png", // 새성도교육
+  "./assets/header3.png", // 발표
+  "./assets/header4.png", // 출석
+  "./assets/header5.png", // 침례
+  "./assets/header6.png", // 유효
+  "./assets/header7.png"  // 단순
+];
+
+const STICKERS = {
+  baptism: { small:"./assets/stk_baptism_small.png", big:"./assets/stk_baptism_big.png" },
+  attendance:{ small:"./assets/stk_att_small.png",    big:"./assets/stk_att_big.png"    },
+  presentation:{ small:"./assets/stk_pres_small.png", big:"./assets/stk_pres_big.png"  },
+  newEdu:   { small:"./assets/stk_leaf_small.png",    big:"./assets/stk_leaf_big.png"  },
+  online:   { small:"./assets/stk_gem_small.png",     big:"./assets/stk_gem_big.png"   }
+};
+
+const categories = ["단순","유효","침례","출석","발표","새성도교육","온라인선교"];
+
+let teams = [];
+let countsData = {};
+let scoreMap = {};
+let totals = {};
+
+/* ⚠️ 간단 CSV split은 유지 (네 시트에 쉼표 포맷 없다고 했으니 그대로) */
+function parseCSV(text){
+  return text.trim().split("\n").map(r=>r.split(",").map(c=>c.replace(/"/g,"").trim()));
+}
+
+async function loadCounts(){
+  const res = await fetch(COUNTS_URL + "&t=" + Date.now(), { cache: "no-store" });
+  const text = await res.text();
+  const rows = parseCSV(text).slice(1);
+
+  teams = [];
+  countsData = {};
+
+  rows.forEach(r=>{
+    const team = "TEAM_" + rows.indexOf(r); // 내부 식별용
+    teams.push(team);
+    countsData[team] = {};
+    categories.forEach((cat,i)=>{
+      countsData[team][cat] = parseInt(String(r[i+1] ?? "0").replace(/,/g,"").trim()) || 0;
+    });
+  });
+}
+
+async function loadScores(){
+  const res = await fetch(SCORE_URL + "&t=" + Date.now(), { cache: "no-store" });
+  const text = await res.text();
+  const rows = parseCSV(text).slice(1);
+
+  scoreMap = {};
+  rows.forEach(r=>{
+    const cat = String(r[0] ?? "").trim();
+    scoreMap[cat] = parseInt(String(r[1] ?? "0").replace(/,/g,"").trim()) || 0;
+  });
+}
+
+function div(cls, html){
+  const d = document.createElement("div");
+  d.className = cls;
+  d.innerHTML = html;
+  return d;
+}
+
+function createBoard(){
+  const board = document.getElementById("board");
+  board.innerHTML = "";
+
+  board.style.gridTemplateColumns = `var(--label-col) repeat(${teams.length}, 1fr)`;
+  board.style.gridTemplateRows = `60px 60px repeat(${categories.length}, 1fr) 90px`;
+
+  // 최종목표
+  board.appendChild(div("cell label","최종목표"));
+  teams.forEach((t, idx)=>{
+    const goal = FINAL_GOALS_FIXED[idx] ?? 0;
+    board.appendChild(div("cell goal", goal.toLocaleString()));
+  });
+
+  // 달성점수
+  board.appendChild(div("cell label","달성점수"));
+  teams.forEach((t, idx)=>{
+    const c = div("cell total","0");
+    c.id = "total_"+idx;
+    board.appendChild(c);
+  });
+
+  // ✅ 영역: 왼쪽 "단순/유효/..." 글씨 칸 위치에 헤더 이미지 삽입
+  categories.slice().reverse().forEach((cat, rowIdx)=>{
+    const labelCell = div("cell label","");
+    const wrap = document.createElement("div");
+    wrap.className = "headerImgWrap";
+
+    const img = document.createElement("img");
+    img.className = "headerImg";
+    img.alt = "header";
+    img.src = TEAM_HEADER_IMAGES[rowIdx] || "";
+    wrap.appendChild(img);
+    labelCell.appendChild(wrap);
+
+    board.appendChild(labelCell);
+
+    teams.forEach((t, idx)=>{
+      const cell = div("cell","");
+      cell.id = `cell_${idx}_${cat}`;
+
+      const fill = document.createElement("div");
+      fill.className = "fill";
+      fill.id = `fill_${idx}_${cat}`;
+      cell.appendChild(fill);
+
+      const sticker = document.createElement("div");
+      sticker.className = "sticker";
+      sticker.id = `sticker_${idx}_${cat}`;
+      cell.appendChild(sticker);
+
+      board.appendChild(cell);
+    });
+  });
+
+  // 팀이름(3줄)
+  board.appendChild(div("cell label",""));
+
+    FIXED_TEAM_NAMES.forEach((teamArr, idx)=>{
+    const html = `
+      <span class="line1">${teamArr[0]}</span>
+      <span class="line2">${teamArr[1]}</span>
+      <span class="line3">${teamArr[2]}</span>
+    `;
+    board.appendChild(div("cell teamName team"+idx, html));
+  });
+
+  createTeamBars();
+}
+
+function createTeamBars(){
+  const board = document.getElementById("board");
+
+  const bottomCell = document.getElementById(`cell_0_단순`);
+  const topCell    = document.getElementById(`cell_0_온라인선교`);
+  if(!bottomCell || !topCell) return;
+
+  const areaTop = topCell.offsetTop;
+  const areaBottom = bottomCell.offsetTop + bottomCell.offsetHeight;
+  const areaHeight = areaBottom - areaTop;
+
+  const labelWidth = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--label-col')) || 150;
+  const teamWidth = (board.clientWidth - labelWidth) / teams.length;
+
+  teams.forEach((t, idx)=>{
+    const old = document.getElementById("teamBar_"+idx);
+    if(old) old.remove();
+
+    const bar = document.createElement("div");
+    bar.className = "teamBar";
+    bar.id = "teamBar_"+idx;
+    bar.style.background = TEAM_COLORS[idx] || "#fff";
+    bar.style.left = (labelWidth + idx*teamWidth) + "px";
+    bar.style.width = teamWidth + "px";
+    bar.style.bottom = (board.clientHeight - areaBottom) + "px";
+    bar.style.height = "0px";
+    board.appendChild(bar);
+
+    bar.dataset.areaHeight = areaHeight;
+  });
+}
+
+function addStickerImg(container, src, isBig){
+  const img = document.createElement("img");
+  img.src = src;
+  img.alt = "sticker";
+  img.className = isBig ? "stickerImgBig" : "stickerImgSmall";
+  container.appendChild(img);
+}
+
+function renderCountStickers(container, count, cfg){
+  const big = Math.floor(count / 5);
+  const small = count % 5;
+  for(let i=0;i<big;i++) addStickerImg(container, cfg.big, true);
+  for(let i=0;i<small;i++) addStickerImg(container, cfg.small, false);
+}
+
+function renderScoreStickers_NewEdu(container, score, cfg){
+  const big = Math.floor(score / 100);
+  const small = Math.floor((score % 100) / 10);
+  for(let i=0;i<big;i++) addStickerImg(container, cfg.big, true);
+  for(let i=0;i<small;i++) addStickerImg(container, cfg.small, false);
+}
+
+function renderScoreStickers_Online(container, score, cfg){
+  const big = Math.floor(score / 1000);
+  const small = Math.floor((score % 1000) / 100);
+  for(let i=0;i<big;i++) addStickerImg(container, cfg.big, true);
+  for(let i=0;i<small;i++) addStickerImg(container, cfg.small, false);
+}
+
+function updateBoard(){
+  totals = {};
+
+  teams.forEach((teamName, idx)=>{
+    let total = 0;
+
+    categories.forEach(cat=>{
+      const count = countsData[teamName]?.[cat] || 0;
+      const unit = scoreMap[cat] || 0;
+      const score = count * unit;
+      total += score;
+
+      const fill = document.getElementById(`fill_${idx}_${cat}`);
+      if(fill) fill.style.height = "0%";
+
+      const box = document.getElementById(`sticker_${idx}_${cat}`);
+      if(box){
+        box.innerHTML = "";
+
+        if(cat==="침례")       renderCountStickers(box, count, STICKERS.baptism);
+        if(cat==="출석")       renderCountStickers(box, count, STICKERS.attendance);
+        if(cat==="발표")       renderCountStickers(box, count, STICKERS.presentation);
+        if(cat==="새성도교육") renderScoreStickers_NewEdu(box, score, STICKERS.newEdu);
+        if(cat==="온라인선교") renderScoreStickers_Online(box, score, STICKERS.online);
+      }
+    });
+
+    totals[idx] = total;
+    const totalCell = document.getElementById("total_"+idx);
+    if(totalCell) totalCell.innerText = total.toLocaleString();
+  });
+
+  // ✅ 총점 막대 업데이트 + 목표 달성 시 반짝 효과(class 토글)
+  teams.forEach((teamName, idx)=>{
+    const bar = document.getElementById("teamBar_"+idx);
+    if(!bar) return;
+
+    const areaHeight = parseFloat(bar.dataset.areaHeight) || 0;
+    const goal = FINAL_GOALS_FIXED[idx] || 0;
+    const achieved = totals[idx] || 0;
+
+    const ratio = goal>0 ? Math.min(achieved/goal, 1) : 0;
+    bar.style.height = (areaHeight * ratio) + "px";
+
+    if(goal > 0 && achieved >= goal){
+      bar.classList.add("completed");
+    }else{
+      bar.classList.remove("completed");
+    }
+  });
+}
+
+let lastTeamsKey = "";
+
+async function refresh(){
+  await loadCounts();
+  await loadScores();
+
+  const teamsKey = teams.join("|");
+  if(teamsKey !== lastTeamsKey){
+    lastTeamsKey = teamsKey;
+    createBoard();
+    requestAnimationFrame(()=>{
+      createTeamBars();
+      updateBoard();
+    });
+  }else{
+    updateBoard();
+  }
+}
+
+async function init(){
+  await refresh();            // 최초 1회
+  setInterval(refresh, 5000); // ✅ 5초마다 자동 갱신
+}
+init();
+
+window.addEventListener("resize", ()=>{
+  requestAnimationFrame(()=>{
+    createTeamBars();
+    updateBoard();
+  });
+});
+
+/* 별 반짝임 애니메이션 */
+const canvas = document.getElementById("starCanvas");
+const ctx = canvas.getContext("2d");
+
+function resizeStars(){
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resizeStars();
+window.addEventListener("resize", resizeStars);
+
+let stars = [];
+const STAR_COUNT = 220;
+
+function initStars(){
+  stars = [];
+  for(let i=0;i<STAR_COUNT;i++){
+    stars.push({
+      x: Math.random()*canvas.width,
+      y: Math.random()*canvas.height,
+      r: Math.random()*2 + 0.2,
+      a: Math.random(),
+      s: (Math.random()*0.02)+0.006
+    });
+  }
+}
+initStars();
+
+function drawStars(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  for(const st of stars){
+    st.a += st.s;
+    if(st.a<=0.05 || st.a>=1) st.s *= -1;
+    ctx.beginPath();
+    ctx.arc(st.x, st.y, st.r, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(255,255,255,${st.a})`;
+    ctx.fill();
+  }
+}
+
+function animateStars(){
+  drawStars();
+  requestAnimationFrame(animateStars);
+}
+animateStars();
+</script>
+</body>
+</html>
