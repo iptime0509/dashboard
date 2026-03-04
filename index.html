@@ -312,11 +312,11 @@ let TEAM_HEADER_IMAGES = [
 const STICKERS = {
   baptism: { small:"./assets/stk_baptism_small.png", big:"./assets/stk_baptism_big.png" },
 
-  // ✅ 출석 2종(시트 입력용)
+  // ✅ 출석 2종
   attNormal:{ small:"./assets/stk_att_normal_small.png", big:"./assets/stk_att_normal_big.png" },
   attLost:  { small:"./assets/stk_att_lost_small.png",   big:"./assets/stk_att_lost_big.png"   },
 
-  // ✅ 발표(하나로 통일)
+  // ✅ 발표(하나)
   preach:   { small:"./assets/stk_preach_small.png",     big:"./assets/stk_preach_big.png"     },
 
   newEdu:   { small:"./assets/stk_leaf_small.png",    big:"./assets/stk_leaf_big.png"  },
@@ -325,8 +325,7 @@ const STICKERS = {
 
 const categories = ["단순","유효","침례","출석","발표","새성도교육","온라인선교"];
 
-/* ✅ Counts 시트 입력/읽기 순서
-   단순, 유효, 침례, 일반출석, 잃은양출석, 발표, 새성도교육, 온라인선교 */
+/* ✅ Counts 시트 입력/읽기 순서 */
 const SHEET_COLS = [
   "단순","유효","침례",
   "일반출석","잃은양출석",
@@ -339,7 +338,6 @@ let countsData = {};
 let scoreMap = {};
 let totals = {};
 
-/* ⚠️ 간단 CSV split은 유지 */
 function parseCSV(text){
   return text.trim().split("\n").map(r=>r.split(",").map(c=>c.replace(/"/g,"").trim()));
 }
@@ -359,7 +357,8 @@ async function loadCountsOnce(){
     countsData[team] = {};
 
     SHEET_COLS.forEach((key,i)=>{
-      countsData[team][key] = parseInt(String(r[i+1] ?? "0").replace(/,/g,"").trim()) || 0;
+      // ✅ 소수 입력 허용(침례/출석 0.6 같은 케이스)
+      countsData[team][key] = parseFloat(String(r[i+1] ?? "0").replace(/,/g,"").trim()) || 0;
     });
   });
 }
@@ -405,7 +404,7 @@ function createBoard(){
     board.appendChild(c);
   });
 
-  // ✅ 영역: 왼쪽 라벨 자리에 헤더 이미지 삽입
+  // 영역
   categories.slice().reverse().forEach((cat, rowIdx)=>{
     const labelCell = div("cell label","");
     const wrap = document.createElement("div");
@@ -429,7 +428,6 @@ function createBoard(){
       fill.id = `fill_${idx}_${cat}`;
       cell.appendChild(fill);
 
-      // ✅ 단순/유효 숫자용
       const countText = document.createElement("div");
       countText.className = "countText";
       countText.id = `countText_${idx}_${cat}`;
@@ -445,7 +443,7 @@ function createBoard(){
     });
   });
 
-  // 팀이름(3줄)
+  // 팀이름
   board.appendChild(div("cell label",""));
   FIXED_TEAM_NAMES.forEach((teamArr, idx)=>{
     const html = `
@@ -498,7 +496,6 @@ function addStickerImg(container, src, isBig){
   container.appendChild(img);
 }
 
-// ✅ 출석 한 칸에서 좌/우 그룹 분리
 function makeSplitStickerBox(box){
   box.classList.add("split");
   box.innerHTML = `
@@ -511,10 +508,34 @@ function makeSplitStickerBox(box){
   };
 }
 
-// ✅ count 갯수만큼 "Big"만 표시 (Small/5단위 전환 없음) - 침례/출석 전용
-function renderCountStickers_BigOnly(container, count, cfg){
-  for(let i=0;i<count;i++){
+// ✅ 소수 비율만큼 "1개 스티커를 잘라서" 표시 + 정수는 그대로
+function renderPartialSticker(container, value, cfg){
+  const full = Math.floor(value);
+  const partial = Math.max(0, Math.min(1, value - full));
+
+  for(let i=0;i<full;i++){
     addStickerImg(container, cfg.big, true);
+  }
+
+  if(partial > 0){
+    const wrap = document.createElement("div");
+    wrap.style.width = "var(--sticker-big)";
+    wrap.style.height = "var(--sticker-big)";
+    wrap.style.overflow = "hidden";
+    wrap.style.position = "relative";
+
+    const img = document.createElement("img");
+    img.src = cfg.big;
+    img.alt = "sticker";
+    img.className = "stickerImgBig";
+    img.style.position = "absolute";
+    img.style.left = "0";
+    img.style.right = "0";
+    img.style.bottom = "0";
+    img.style.clipPath = `inset(${(1-partial)*100}% 0 0 0)`;
+
+    wrap.appendChild(img);
+    container.appendChild(wrap);
   }
 }
 
@@ -564,7 +585,6 @@ function updateBoard(){
         score = normal * unitNormal + lost * unitLost;
 
       } else {
-        // ✅ 발표 포함, 나머지는 모두: (카운트) * (SCORE 시트 단가)
         const count = countsData[teamName]?.[cat] || 0;
         const unit  = scoreMap[cat] || 0;
         score = count * unit;
@@ -575,12 +595,11 @@ function updateBoard(){
       const fill = document.getElementById(`fill_${idx}_${cat}`);
       if(fill) fill.style.height = "0%";
 
-      // ✅ 단순/유효 숫자 표시(Counts 값 그대로)
       const ct = document.getElementById(`countText_${idx}_${cat}`);
       if(ct){
         if(cat === "단순" || cat === "유효"){
           const v = countsData[teamName]?.[cat] || 0;
-          ct.textContent = v.toLocaleString();
+          ct.textContent = (Math.floor(v)).toLocaleString();
           ct.style.opacity = "1";
         }else{
           ct.textContent = "";
@@ -593,28 +612,27 @@ function updateBoard(){
         box.classList.remove("split");
         box.innerHTML = "";
 
-        // ✅ 단순/유효는 스티커 없음(숫자만)
         if(cat==="단순" || cat==="유효"){
           return;
         }
 
-        // ✅ 침례: count 갯수대로 "Big"만
+        // ✅ 침례: 소수 비율 스티커
         if(cat==="침례"){
           const count = countsData[teamName]?.["침례"] || 0;
-          renderCountStickers_BigOnly(box, count, STICKERS.baptism);
+          renderPartialSticker(box, count, STICKERS.baptism);
         }
 
-        // ✅ 출석: count 갯수대로 "Big"만 (좌/우 분리)
+        // ✅ 출석: 일반/잃은양 둘 다 소수 비율 스티커 적용(좌/우 분리)
         if(cat==="출석"){
           const normal = countsData[teamName]?.["일반출석"] || 0;
           const lost   = countsData[teamName]?.["잃은양출석"] || 0;
 
           const { left, right } = makeSplitStickerBox(box);
-          renderCountStickers_BigOnly(left,  normal, STICKERS.attNormal);
-          renderCountStickers_BigOnly(right, lost,   STICKERS.attLost);
+          renderPartialSticker(left,  normal, STICKERS.attNormal);
+          renderPartialSticker(right, lost,   STICKERS.attLost);
         }
 
-        // ✅ 발표: "점수" 기준 스티커 (배점×5=Big, 배점=Small)
+        // ✅ 발표: 점수 기준 스티커
         if(cat==="발표"){
           const count = countsData[teamName]?.["발표"] || 0;
           const unit  = scoreMap["발표"] || 0;
@@ -622,7 +640,7 @@ function updateBoard(){
           renderScoreStickers_ByUnit(box, presScore, unit, STICKERS.preach);
         }
 
-        // ✅ 새성도교육/온라인선교: 점수 기준(기존 규칙 유지)
+        // ✅ 새성도교육/온라인선교: 점수 기준(기존)
         if(cat==="새성도교육") renderScoreStickers_NewEdu(box, score, STICKERS.newEdu);
         if(cat==="온라인선교") renderScoreStickers_Online(box, score, STICKERS.online);
       }
@@ -633,7 +651,7 @@ function updateBoard(){
     if(totalCell) totalCell.innerText = total.toLocaleString();
   });
 
-  // ✅ 총점 막대 업데이트 + 목표 달성 시 반짝 효과(class 토글)
+  // ✅ 총점 막대 업데이트 + 목표 달성 시 반짝 효과
   teams.forEach((teamName, idx)=>{
     const bar = document.getElementById("teamBar_"+idx);
     if(!bar) return;
@@ -653,7 +671,7 @@ function updateBoard(){
   });
 }
 
-// ✅ 자동 새로고침/재갱신 없이, "페이지 로드시 1회"만 불러오기
+// ✅ 페이지 로드시 1회만 불러오기
 async function init(){
   await loadCountsOnce();
   await loadScoresOnce();
@@ -662,7 +680,7 @@ async function init(){
 }
 init();
 
-// 리사이즈만 반영(새 데이터 로드는 안 함)
+// 리사이즈만 반영
 window.addEventListener("resize", ()=>{
   requestAnimationFrame(()=>{
     createTeamBars();
